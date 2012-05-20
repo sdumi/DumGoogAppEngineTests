@@ -1,3 +1,6 @@
+import jinja2
+import os
+
 import cgi
 import datetime
 import urllib
@@ -6,7 +9,9 @@ import webapp2
 from google.appengine.ext import db
 from google.appengine.api import users
 
-# a complete example using the datastore:
+# using the templates
+jinja_environment = jinja2.Environment(
+    loader=jinja2.FileSystemLoader(os.path.dirname(__file__)))
 
 class Greeting(db.Model):
     """Models an individual Guestbook entry with an author, content and date."""
@@ -20,32 +25,25 @@ def guestbook_key(guestbook_name=None):
 
 class MainPage(webapp2.RequestHandler):
     def get(self):
-        self.response.out.write('<html><body>')
-        guestbook_name=self.request.get('guestbook_name')
-        greetings = db.GqlQuery("SELECT * "
-                            "FROM Greeting "
-                            "WHERE ANCESTOR IS :1 "
-                            "ORDER BY date DESC LIMIT 10",
-                            guestbook_key(guestbook_name))
-        for greeting in  greetings:
-            if greeting.author:
-                self.response.out.write(
-                    '<b>%s</b> wrote:' % greeting.author.nickname())
-            else:
-                self.response.out.write('An anonymous person wrote:')
-            self.response.out.write('<blockquote>%s</blockquote>' %
-                                    cgi.escape(greeting.content))
-        self.response.out.write("""
-          <form action="/sign?%s" method="post">
-            <div><textarea name="content" rows="3" cols="60"></textarea></div>
-            <div><input type="submit" value="Sign Guestbook"></div>
-          </form>
-          <hr>
-          <form>Guestbook name: <input value="%s" name="guestbook_name">
-          <input type="submit" value="switch"></form>
-        </body>
-      </html>""" % (urllib.urlencode({'guestbook_name': guestbook_name}),
-                          cgi.escape(guestbook_name)))
+        guestbook_name = self.request.get('guestbook_name')
+        greetings_query = Greeting.all().ancestor(
+            guestbook_key(guestbook_name)).order('-date')
+        greetings = greetings_query.fetch(10)
+
+        if users.get_current_user():
+            url = users.create_logout_url(self.request.uri)
+            url_linktext = 'Logout'
+        else:
+            url = users.create_login_url(self.request.uri)
+            url_linktext = 'Login'
+        template_values = {
+            'greetings':greetings,
+            'url': url,
+            'url_linktext':url_linktext,
+            }
+        template = jinja_environment.get_template('index.html')
+        self.response.out.write(template.render(template_values))
+
 
 class Guestbook(webapp2.RequestHandler):
     def post(self):
