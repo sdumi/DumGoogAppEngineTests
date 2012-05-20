@@ -5,6 +5,9 @@ api_version: 1
 threadsafe: yes
 
 handlers:
+- url: /stylesheets
+  static_dir: stylesheets
+
 - url: /favicon\.ico
   static_files: favicon.ico
   upload: favicon\.ico
@@ -15,5 +18,6 @@ handlers:
 libraries:
 - name: webapp2
   version: "2.5.1"
+
 - name: jinja2
   version: latest
